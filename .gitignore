@@ -1,0 +1,11 @@
+# Binaries
+bin/
+gopher-watch
+
+# OS/IDE files
+.DS_Store
+.idea/
+.vscode/
+
+# Environment
+.env
