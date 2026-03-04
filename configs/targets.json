@@ -45,5 +45,12 @@
     "body_contains": "anything",
     "timeout_ms": 1000,
     "retries": 2
-  }
+  },
+  {
+    "name": "Chaos-Demo-Service",
+    "url": "https://www.nonexistentdomainforsimulatedfailure.com/", 
+    "body_contains": "Welcome",
+    "timeout_ms": 1000,
+    "retries": 2
+}
 ]}
