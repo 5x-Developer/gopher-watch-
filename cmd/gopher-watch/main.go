@@ -1,16 +1,19 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/5x-Developer/gopher-watch-/internal/metrics"
 	"github.com/5x-Developer/gopher-watch-/internal/monitor"
 )
 
@@ -30,6 +33,16 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(multiWriter, nil))
 
 	logger.Info("Gopher-watch Monitoring Engine Starting", "version", "1.4")
+
+	go func() {
+		http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
+			reg := metrics.GetInstance()
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(reg)
+		})
+		fmt.Println("📈 Metrics endpoint available at http://localhost:8080/metrics")
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}()
 
 	// 1. Load config once to get the interval
 	config, err := monitor.LoadConfig(configPath)
@@ -70,6 +83,9 @@ func main() {
 		total, passed := 0, 0
 		for res := range resultsChannel {
 			total++
+			// 1. Update Global Metrics inside the loop
+			metrics.GetInstance().RecordResult(res.TargetName, res.Success)
+
 			if res.Success {
 				passed++
 				logger.Info("Probe Success",
@@ -86,7 +102,9 @@ func main() {
 				)
 			}
 		}
+
 		fmt.Printf("Summary: %d/%d passed\n", passed, total)
+		metrics.GetInstance().UpdateTimestamp()
 	}
 
 	runprobes()
