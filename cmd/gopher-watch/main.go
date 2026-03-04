@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/5x-Developer/gopher-watch-/internal/monitor"
@@ -11,49 +14,68 @@ import (
 
 func main() {
 	fmt.Println("Gopher-watch Monitoring Engine Starting")
-
 	configPath := "configs/targets.json"
-	targets, err := monitor.LoadTargetsFromFile(configPath)
+
+	// 1. Load config once to get the interval
+	config, err := monitor.LoadConfig(configPath)
 	if err != nil {
-		// Log the error and exit with code 1 so monitoring/CI-CD knows it failed
-		log.Fatalf("CRITICAL: Application failed to initialize: %v", err)
+		log.Fatalf("CRITICAL: %v", err)
 	}
 
-	var wg sync.WaitGroup                                     // WaitGroup to wait for all probes to finish
-	resultsChannel := make(chan monitor.Result, len(targets)) // Buffered channel to collect results
-	fmt.Printf("Successfully loaded %d targets:\n", len(targets))
-	for _, t := range targets {
-		wg.Add(1)
-		go func(target monitor.Target) {
-			defer wg.Done()
-			//sending the result of the ping to the results channel, which will be collected by the main goroutine
-			resultsChannel <- monitor.Ping(target)
-		}(t)
+	ticker := time.NewTicker(time.Duration(config.IntervalSeconds) * time.Second)
+	defer ticker.Stop()
+
+	// 2. Setup Signal Handling for Graceful Shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	runprobes := func() {
+		// Re-load targets in case the file changed
+		c, _ := monitor.LoadConfig(configPath)
+		targets := c.Targets
+
+		var wg sync.WaitGroup
+		resultsChannel := make(chan monitor.Result, len(targets))
+
+		fmt.Printf("\n--- Probe Cycle: %s ---\n", time.Now().Format("15:04:05"))
+
+		for _, t := range targets {
+			wg.Add(1)
+			go func(target monitor.Target) {
+				defer wg.Done()
+				resultsChannel <- monitor.Ping(target)
+			}(t)
+		}
+
+		go func() {
+			wg.Wait()
+			close(resultsChannel)
+		}()
+
+		total, passed := 0, 0
+		for res := range resultsChannel {
+			total++
+			if res.Success {
+				passed++
+				fmt.Printf("%s: %d | %v\n", res.TargetName, res.Status, res.Latency.Round(time.Millisecond))
+			} else {
+				fmt.Printf("%s: FAILED | %s\n", res.TargetName, res.Message)
+			}
+		}
+		fmt.Printf("Summary: %d/%d passed\n", passed, total)
 	}
-	go func() {
-		wg.Wait()             // Wait for all probes to finish
-		close(resultsChannel) // Close the channel to signal that no more results will be sent
-	}()
-	// 4. The "Collector": Pull results from the channel and print them
-	// This loop stays alive until the channel is closed
-	total := 0
-	passed := 0
-	failed := 0
-	for res := range resultsChannel {
-		total++
-		if res.Success {
-			passed++
-			fmt.Printf("%s: %d | Latency: %v\n", res.TargetName, res.Status, res.Latency.Round(time.Millisecond))
-		} else {
-			failed++
-			fmt.Printf("%s: FAILED | Error: %s\n", res.TargetName, res.Message)
+
+	runprobes()
+
+	for {
+		select {
+		case <-ticker.C:
+			runprobes()
+		case sig := <-sigChan:
+			// 3. The Graceful Exit
+			fmt.Printf("\nShutting down... Received signal: %v\n", sig)
+			fmt.Println("Shutdown complete")
+			return
 		}
 	}
-	fmt.Println("All probes completed. Exiting.")
-	fmt.Println("--------------------------------------------------")
-	fmt.Printf(" Monitoring Summary:\n")
-	fmt.Printf("   Total Probes:  %d\n", total)
-	fmt.Printf("   Passed:        %d\n", passed)
-	fmt.Printf("   Failed:        %d\n", failed)
-	fmt.Println("--------------------------------------------------")
 }
