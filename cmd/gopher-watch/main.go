@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"sync"
@@ -15,6 +17,19 @@ import (
 func main() {
 	fmt.Println("Gopher-watch Monitoring Engine Starting")
 	configPath := "configs/targets.json"
+	// 1. Open (or create) the log file
+	logFile, err := os.OpenFile("gopher-watch.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	defer logFile.Close()
+
+	// 2. Create a JSON handler that writes to the file
+	// We can also use io.MultiWriter(os.Stdout, logFile) to see it in both places
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+	logger := slog.New(slog.NewJSONHandler(multiWriter, nil))
+
+	logger.Info("Gopher-watch Monitoring Engine Starting", "version", "1.4")
 
 	// 1. Load config once to get the interval
 	config, err := monitor.LoadConfig(configPath)
@@ -57,9 +72,18 @@ func main() {
 			total++
 			if res.Success {
 				passed++
-				fmt.Printf("%s: %d | %v\n", res.TargetName, res.Status, res.Latency.Round(time.Millisecond))
+				logger.Info("Probe Success",
+					"target", res.TargetName,
+					"status", res.Status,
+					"latency_ms", res.Latency.Milliseconds(),
+				)
 			} else {
-				fmt.Printf("%s: FAILED | %s\n", res.TargetName, res.Message)
+				logger.Error("Probe Failed",
+					"target", res.TargetName,
+					"status", res.Status,
+					"latency_ms", res.Latency.Milliseconds(),
+					"message", res.Message,
+				)
 			}
 		}
 		fmt.Printf("Summary: %d/%d passed\n", passed, total)
