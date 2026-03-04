@@ -1,11 +1,13 @@
 # Binaries
-bin/
-gopher-watch
+/gopher-watch
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+!cmd/
+!cmd/**/
 
-# OS/IDE files
-.DS_Store
-.idea/
+# IDEs
 .vscode/
-
-# Environment
-.env
+.idea/

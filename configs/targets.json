@@ -1,11 +1,14 @@
-[
+{
+  "interval_seconds": 30,
+  "targets": [
   {
     "name": "Google-Search",
     "url": "https://www.google.com",
     "method": "GET",
     "expected_status": 200,
     "body_contains": "Google",
-    "timeout_ms": 2000
+    "timeout_ms": 2000,
+    "retries": 2
   },
   {
     "name": "GitHub-Status-Check",
@@ -13,7 +16,8 @@
     "method": "GET",
     "expected_status": 200,
     "body_contains": "GitHub",
-    "timeout_ms": 2000
+    "timeout_ms": 2000,
+    "retries": 2
   },
   {
     "name": "Simulated-Body-Failure",
@@ -21,7 +25,8 @@
     "method": "GET",
     "expected_status": 200,
     "body_contains": "ThisStringDoesNotExist",
-    "timeout_ms": 2000
+    "timeout_ms": 2000,
+    "retries": 2
   },
   {
     "name": "Simulated-Status-Failure",
@@ -29,7 +34,8 @@
     "method": "GET",
     "expected_status": 200,
     "body_contains": "GitHub",
-    "timeout_ms": 2000
+    "timeout_ms": 2000,
+    "retries": 2
   },
   {
     "name": "Simulated-Timeout",
@@ -37,6 +43,7 @@
     "method": "GET",
     "expected_status": 200,
     "body_contains": "anything",
-    "timeout_ms": 1000
+    "timeout_ms": 1000,
+    "retries": 2
   }
-]
+]}
