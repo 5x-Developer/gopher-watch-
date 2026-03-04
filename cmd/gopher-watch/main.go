@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -15,11 +14,20 @@ import (
 
 	"github.com/5x-Developer/gopher-watch-/internal/metrics"
 	"github.com/5x-Developer/gopher-watch-/internal/monitor"
+	"github.com/5x-Developer/gopher-watch-/internal/notifier"
+	"github.com/joho/godotenv"
 )
 
+func init() {
+	// Load .env file into the system's environment
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, relying on system environment variables")
+	}
+}
 func main() {
 	fmt.Println("Gopher-watch Monitoring Engine Starting")
 	configPath := "configs/targets.json"
+
 	// 1. Open (or create) the log file
 	logFile, err := os.OpenFile("gopher-watch.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -36,9 +44,8 @@ func main() {
 
 	go func() {
 		http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-			reg := metrics.GetInstance()
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(reg)
+			w.Header().Set("Content-Type", "text/plain; version=0.0.4")
+			fmt.Fprint(w, metrics.GetInstance().ToPrometheus())
 		})
 		fmt.Println("📈 Metrics endpoint available at http://localhost:8080/metrics")
 		log.Fatal(http.ListenAndServe(":8080", nil))
@@ -83,11 +90,29 @@ func main() {
 		total, passed := 0, 0
 		for res := range resultsChannel {
 			total++
-			// 1. Update Global Metrics inside the loop
-			metrics.GetInstance().RecordResult(res.TargetName, res.Success)
+
+			// 1. Get the current streak before resetting it on success
+			oldStreak := metrics.GetInstance().GetFailureStreak(res.TargetName)
+
+			// 2. Record metrics and update/reset the streak
+			metrics.GetInstance().RecordResult(res.TargetName, res.Success, res.Latency)
+			streak := metrics.GetInstance().UpdateStreak(res.TargetName, res.Success)
 
 			if res.Success {
 				passed++
+				if oldStreak >= 3 {
+					recoveryMsg := fmt.Sprintf("✅ *Service Recovered*: %s\nEverything is back to normal after %d failed cycles.",
+						res.TargetName, oldStreak)
+
+					webhook := os.Getenv("SLACK_WEBHOOK_URL")
+					if webhook != "" {
+						go func(url, msg string) {
+							if err := notifier.SendSlackAlert(url, msg); err != nil {
+								logger.Error("Slack recovery alert failed", "error", err)
+							}
+						}(webhook, recoveryMsg)
+					}
+				}
 				logger.Info("Probe Success",
 					"target", res.TargetName,
 					"status", res.Status,
@@ -97,16 +122,32 @@ func main() {
 				logger.Error("Probe Failed",
 					"target", res.TargetName,
 					"status", res.Status,
-					"latency_ms", res.Latency.Milliseconds(),
+					"streak", streak, // Added streak to logs for better debugging
 					"message", res.Message,
 				)
+
+				// 3. SLACK ALERT LOGIC
+				// Only alert exactly on the 3rd consecutive failed cycle (Tick) (9 attempts total)
+				if streak == 3 {
+					alertMsg := fmt.Sprintf("🚨 *Service Down*: %s\nFailed 3 consecutive cycles.\nError: %s",
+						res.TargetName, res.Message)
+
+					webhook := os.Getenv("SLACK_WEBHOOK_URL")
+					if webhook != "" {
+						go func(url, msg string) {
+							if err := notifier.SendSlackAlert(url, msg); err != nil {
+								logger.Error("Slack alert failed", "error", err)
+							}
+						}(webhook, alertMsg)
+					}
+				}
 			}
+
 		}
-
-		fmt.Printf("Summary: %d/%d passed\n", passed, total)
+		fmt.Printf(" Summary: %d/%d passed\n", passed, total)
 		metrics.GetInstance().UpdateTimestamp()
-	}
 
+	}
 	runprobes()
 
 	for {
@@ -120,4 +161,5 @@ func main() {
 			return
 		}
 	}
+
 }
