@@ -29,7 +29,7 @@ run: build
 # Includes race detector and coverage report
 test:
 	@echo "Running unit tests with race detector..."
-	@go test -v -race -cover ./...
+	@go test -v -race -cover ./internal/...
 	@echo "All tests passed."
 
 # 5. Clean up binary
