@@ -48,9 +48,11 @@
   },
   {
     "name": "Chaos-Demo-Service",
-    "url": "https://www.nonexistentdomainforsimulatedfailure.com/", 
-    "body_contains": "Welcome",
+    "url": "https://www.apple.com/",
+    "method": "GET",
+    "expected_status": 200, 
+    "body_contains": "Apple",
     "timeout_ms": 1000,
     "retries": 2
-}
+  }
 ]}
