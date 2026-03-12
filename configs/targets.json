@@ -1,0 +1,58 @@
+{
+  "interval_seconds": 30,
+  "targets": [
+  {
+    "name": "Google-Search",
+    "url": "https://www.google.com",
+    "method": "GET",
+    "expected_status": 200,
+    "body_contains": "Google",
+    "timeout_ms": 2000,
+    "retries": 2
+  },
+  {
+    "name": "GitHub-Status-Check",
+    "url": "https://github.com",
+    "method": "GET",
+    "expected_status": 200,
+    "body_contains": "GitHub",
+    "timeout_ms": 2000,
+    "retries": 2
+  },
+  {
+    "name": "Simulated-Body-Failure",
+    "url": "https://www.google.com",
+    "method": "GET",
+    "expected_status": 200,
+    "body_contains": "ThisStringDoesNotExist",
+    "timeout_ms": 2000,
+    "retries": 2
+  },
+  {
+    "name": "Simulated-Status-Failure",
+    "url": "https://github.com/non-existent-page-12345",
+    "method": "GET",
+    "expected_status": 200,
+    "body_contains": "GitHub",
+    "timeout_ms": 2000,
+    "retries": 2
+  },
+  {
+    "name": "Simulated-Timeout",
+    "url": "https://httpbin.org/delay/5",
+    "method": "GET",
+    "expected_status": 200,
+    "body_contains": "anything",
+    "timeout_ms": 1000,
+    "retries": 2
+  },
+  {
+    "name": "Chaos-Demo-Service",
+    "url": "https://www.apple.com/",
+    "method": "GET",
+    "expected_status": 200, 
+    "body_contains": "Apple",
+    "timeout_ms": 1000,
+    "retries": 2
+  }
+]}
