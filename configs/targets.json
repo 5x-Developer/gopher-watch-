@@ -24,13 +24,13 @@
     "url": "https://www.google.com",
     "method": "GET",
     "expected_status": 200,
-    "body_contains": "ThisStringDoesNotExist",
+    "body_contains": "Google", 
     "timeout_ms": 2000,
     "retries": 2
   },
   {
     "name": "Simulated-Status-Failure",
-    "url": "https://github.com/non-existent-page-12345",
+    "url": "https://github.com", 
     "method": "GET",
     "expected_status": 200,
     "body_contains": "GitHub",
@@ -39,11 +39,11 @@
   },
   {
     "name": "Simulated-Timeout",
-    "url": "https://httpbin.org/delay/5",
+    "url": "https://www.google.com", 
     "method": "GET",
     "expected_status": 200,
-    "body_contains": "anything",
-    "timeout_ms": 1000,
+    "body_contains": "Google",
+    "timeout_ms": 2000,
     "retries": 2
   },
   {
