@@ -17,3 +17,9 @@
 
 # env
 .env
+
+# Docker
+.docker/
+data/
+*.db
+
