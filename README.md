@@ -1,4 +1,4 @@
-# 🐹 Gopher-Watch: Cloud-Native Monitoring Engine
+# 🐹 Gopher-Watch: Cloud-Native Monitoring Engine --
 
 ![CI Status](https://github.com/aditya2319/gopher-watch-fork/actions/workflows/go-ci.yml/badge.svg)
 ![Go Version](https://img.shields.io/badge/Go-1.22-00ADD8?style=flat&logo=go)
