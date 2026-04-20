@@ -37,19 +37,18 @@ jobs:
           push: true
           tags: ghcr.io/${{ steps.lowercase.outputs.owner }}/gopher-watch:latest
 
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.DROPLET_SSH_KEY }}
-
-      - name: Add Droplet to known hosts
-        run: ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DROPLET_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.DROPLET_IP }} >> ~/.ssh/known_hosts
 
       - name: Copy configs to Droplet
         run: |
-          ssh root@${{ secrets.DROPLET_IP }} "mkdir -p /opt/gopher-watch/configs/prometheus"
-          rsync -avz configs/ root@${{ secrets.DROPLET_IP }}:/opt/gopher-watch/configs/
-          rsync -avz docker-compose.prod.yml root@${{ secrets.DROPLET_IP }}:/opt/gopher-watch/
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} "mkdir -p /opt/gopher-watch/configs/prometheus"
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key" configs/ root@${{ secrets.DROPLET_IP }}:/opt/gopher-watch/configs/
+          rsync -avz -e "ssh -i ~/.ssh/deploy_key" docker-compose.prod.yml root@${{ secrets.DROPLET_IP }}:/opt/gopher-watch/
 
       - name: Deploy to Droplet
         env:
@@ -57,7 +56,7 @@ jobs:
           GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
           IMAGE_OWNER: ${{ steps.lowercase.outputs.owner }}
         run: |
-          ssh root@${{ secrets.DROPLET_IP }} bash << EOF
+          ssh -i ~/.ssh/deploy_key root@${{ secrets.DROPLET_IP }} bash << EOF
             cd /opt/gopher-watch
             echo "SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}" > .env
             echo "GRAFANA_PASSWORD=${GRAFANA_PASSWORD}" >> .env
